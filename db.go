@@ -91,6 +91,76 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	}
 
 	pos := db.index.Get(key)
+	return db.getValueByPosition(pos)
+}
+
+// 获取数据库中所有key
+func (db *DB) ListKeys() [][]byte {
+	it := db.index.Iterator(false)
+	keys := make([][]byte, db.index.Size())
+	var idx int
+	for it.Rewind(); it.Valid(); it.Next() {
+		keys[idx] = it.Key()
+		idx++
+	}
+	return keys
+}
+
+// 获取所有数据，并执行用户指定操作，直到操作返回false推出循环
+func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	it := db.index.Iterator(false)
+	for it.Rewind(); it.Valid(); it.Next() {
+		val, err := db.getValueByPosition(it.Value())
+		if err != nil {
+			return err
+		}
+		if !fn(it.Key(), val) {
+			break
+		}
+	}
+	return nil
+}
+
+// 关闭数据库
+func (db *DB) Close() error {
+	// 关闭活跃文件
+	if db.activeFile == nil {
+		return nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	if err := db.activeFile.Close(); err != nil {
+		return err
+	}
+
+	// 关闭旧的数据文件
+	for _, dataFile := range db.olderFiles {
+		if err := dataFile.Close(); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// 持久化数据文件
+func (db *DB) Sync() error {
+	if db.activeFile == nil {
+		return nil
+	}
+
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	return db.activeFile.Sync()
+}
+
+func (db *DB) getValueByPosition(pos *data.LogRecordPos) ([]byte, error) {
 	// key不存在
 	if pos == nil {
 		return nil, ErrKeyNotFound

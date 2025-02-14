@@ -12,6 +12,7 @@ type Indexer interface {
 	Put(key []byte, pos *data.LogRecordPos) bool
 	Get(key []byte) *data.LogRecordPos
 	Delete(key []byte) bool
+	Size() int                      // 索引中的数据数量
 	Iterator(reverse bool) Iterator // 迭代器
 }
 
