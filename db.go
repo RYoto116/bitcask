@@ -20,6 +20,7 @@ type DB struct {
 	activeFile *data.DataFile            // 当前活跃文件，用于写入
 	olderFiles map[uint32]*data.DataFile // 旧的数据文件，只用于读
 	index      index.Indexer
+	seqNo      uint64 // 事务序列号，全局递增
 }
 
 // 打开存储引擎实例
@@ -69,7 +70,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 		Type:  data.LogRecordNormal,
 	}
 
-	pos, err := db.appendLogRecord(&logRecord)
+	pos, err := db.appendLogRecordWithLock(&logRecord)
 	if err != nil {
 		return err
 	}
@@ -207,7 +208,7 @@ func (db *DB) Delete(key []byte) error {
 		Type: data.LogRecordDeleted,
 	}
 
-	_, err := db.appendLogRecord(logRecord)
+	_, err := db.appendLogRecordWithLock(logRecord)
 	if err != nil {
 		return err
 	}
@@ -215,10 +216,13 @@ func (db *DB) Delete(key []byte) error {
 	return nil
 }
 
-func (db *DB) appendLogRecord(lr *data.LogRecord) (*data.LogRecordPos, error) {
+func (db *DB) appendLogRecordWithLock(lr *data.LogRecord) (*data.LogRecordPos, error) {
 	db.mu.Lock()
 	defer db.mu.Unlock()
+	return db.appendLogRecord(lr)
+}
 
+func (db *DB) appendLogRecord(lr *data.LogRecord) (*data.LogRecordPos, error) {
 	// 判断当前活跃数据文件是否存在，不存在则初始化数据文件
 	if db.activeFile == nil {
 		if err := db.setActiveDataFile(); err != nil {

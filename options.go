@@ -23,6 +23,15 @@ var DefaultOptions = Options{
 	IndexType:    Btree,
 }
 
+// 批量写配置项
+type WriteBatchOptions struct {
+	// 一个批次中最大数据量
+	MaxBatchSize uint
+
+	// 提交时是否持久化数据
+	SyncWrites bool
+}
+
 // 迭代器配置项，指定需要遍历的Key前缀以及遍历方向
 type IteratorOptions struct {
 	Prefix  []byte // 默认为空
