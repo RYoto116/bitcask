@@ -35,6 +35,12 @@ type logRecordHeader struct {
 	valueSize     uint32
 }
 
+// 暂存事务相关的数据
+type TxnRecord struct {
+	Record *LogRecord
+	Pos    *LogRecordPos
+}
+
 // 将LogRecord编码为字节数组，返回数组长度
 //
 //	|  crc  |  type  |  keySize  |  valueSize  |  key  |  value  |

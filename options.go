@@ -42,3 +42,8 @@ var DefaultIteratorOptions = IteratorOptions{
 	Prefix:  nil,
 	Reverse: false,
 }
+
+var DefaultWriteBatchOptions = WriteBatchOptions{
+	MaxBatchSize: 10000,
+	SyncWrites:   true,
+}
