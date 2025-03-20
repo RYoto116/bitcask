@@ -21,6 +21,30 @@ type LogRecordPos struct {
 	Offset int64  // 数据存储位置在文件中的偏移量
 }
 
+// 对索引位置进行编码
+func EncodeLogRecordPos(pos *LogRecordPos) []byte {
+	buf := make([]byte, binary.MaxVarintLen32+binary.MaxVarintLen64) // Fid: uint32, Offset: int64
+	var index = 0
+	index += binary.PutVarint(buf[index:], int64(pos.Fid))
+	index += binary.PutVarint(buf[index:], pos.Offset)
+
+	return buf
+}
+
+// 解码LogRecordPos
+func DecodeLogRecordPos(buf []byte) *LogRecordPos {
+	var index = 0
+	fileId, n := binary.Varint(buf[index:])
+	index += n
+	offset, n := binary.Varint(buf[index:])
+	index += n
+
+	return &LogRecordPos{
+		Fid:    uint32(fileId),
+		Offset: offset,
+	}
+}
+
 // 写入到数据文件的记录
 type LogRecord struct {
 	Key   []byte
