@@ -13,16 +13,20 @@ import (
 	"sync"
 )
 
+const seqNoKey = "seq.no"
+
 // 存储引擎实例
 type DB struct {
-	opt        Options
-	mu         *sync.RWMutex
-	fileIds    []int                     // 仅用于加载索引
-	activeFile *data.DataFile            // 当前活跃文件，用于写入
-	olderFiles map[uint32]*data.DataFile // 旧的数据文件，只用于读
-	index      index.Indexer
-	seqNo      uint64 // 事务序列号，全局递增
-	isMerging  bool   // 数据库是否正在执行merge操作
+	opt             Options
+	mu              *sync.RWMutex
+	fileIds         []int                     // 仅用于加载索引
+	activeFile      *data.DataFile            // 当前活跃文件，用于写入
+	olderFiles      map[uint32]*data.DataFile // 旧的数据文件，只用于读
+	index           index.Indexer
+	seqNo           uint64 // 事务序列号，全局递增
+	isMerging       bool   // 数据库是否正在执行merge操作
+	seqNoFileExists bool   // 存储事务序列号的文件是否存在
+	isInitial       bool   // 是否第一次初始化数据目录
 }
 
 // 打开存储引擎实例
@@ -32,11 +36,22 @@ func OpenDB(opt Options) (*DB, error) {
 		return nil, err
 	}
 
+	var isInitial bool = false
 	// 检查数据目录是否存在
 	if _, err := os.Stat(opt.DirPath); os.IsNotExist(err) {
+		isInitial = true
 		if err := os.MkdirAll(opt.DirPath, os.ModePerm); err != nil {
 			return nil, err
 		}
+	}
+
+	entries, err := os.ReadDir(opt.DirPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(entries) == 0 {
+		isInitial = true
 	}
 
 	// 初始化DB实例结构体
@@ -44,8 +59,9 @@ func OpenDB(opt Options) (*DB, error) {
 		opt:        opt,
 		mu:         new(sync.RWMutex),
 		olderFiles: make(map[uint32]*data.DataFile),
-		index:      index.NewIndexer(opt.IndexType),
+		index:      index.NewIndexer(opt.IndexType, opt.DirPath, opt.SyncWrites),
 		isMerging:  false,
+		isInitial:  isInitial,
 	}
 
 	// 加载merge数据目录
@@ -58,17 +74,59 @@ func OpenDB(opt Options) (*DB, error) {
 		return nil, err
 	}
 
-	// 从hint文件中加载索引
-	if err := db.loadIndexFromHintFile(); err != nil {
-		return nil, err
-	}
+	// B+树不需要从数据文件中加载索引
+	if opt.IndexType != BPlusTree {
+		// 从hint文件中加载索引
+		if err := db.loadIndexFromHintFile(); err != nil {
+			return nil, err
+		}
 
-	// 从未merge的数据文件中加载索引
-	if err := db.loadIndexFromDataFiles(); err != nil {
-		return nil, err
-	}
+		// 从未merge的数据文件中加载索引，取得事务序列号
+		if err := db.loadIndexFromDataFiles(); err != nil {
+			return nil, err
+		}
+	} else {
+		// 加载事务序列号
+		if err := db.loadSeqNo(); err != nil {
+			return nil, err
+		}
 
+		// 手动更新活跃文件偏移量
+		if db.activeFile != nil {
+			size, err := db.activeFile.IoManager.Size()
+			if err != nil {
+				return nil, err
+			}
+			db.activeFile.WriteOff = size
+		}
+	}
 	return db, nil
+}
+
+func (db *DB) loadSeqNo() error {
+	seqNoPath := filepath.Join(db.opt.DirPath, data.SeqNoFileName)
+	if _, err := os.Stat(seqNoPath); os.IsNotExist(err) {
+		return nil
+	}
+	seqNoFile, err := data.OpenSeqNoFile(db.opt.DirPath)
+	if err != nil {
+		return err
+	}
+
+	record, _, err := seqNoFile.ReadLogRecord(0)
+	if err != nil {
+		return err
+	}
+
+	seqNo, err := strconv.ParseUint(string(record.Value), 10, 64)
+	if err != nil {
+		return err
+	}
+	db.seqNo = uint64(seqNo)
+	db.seqNoFileExists = true
+
+	// 重要！！否则一直追加写seqNoFile记录
+	return os.Remove(seqNoPath)
 }
 
 func (db *DB) Put(key []byte, value []byte) error {
@@ -111,6 +169,7 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 // 获取数据库中所有key
 func (db *DB) ListKeys() [][]byte {
 	it := db.index.Iterator(false)
+	defer it.Close()
 	keys := make([][]byte, db.index.Size())
 	var idx int
 	for it.Rewind(); it.Valid(); it.Next() {
@@ -126,6 +185,7 @@ func (db *DB) Fold(fn func(key []byte, value []byte) bool) error {
 	defer db.mu.RUnlock()
 
 	it := db.index.Iterator(false)
+	defer it.Close() // B+树读写事务之间是互斥的
 	for it.Rewind(); it.Valid(); it.Next() {
 		val, err := db.getValueByPosition(it.Value())
 		if err != nil {
@@ -147,6 +207,31 @@ func (db *DB) Close() error {
 
 	db.mu.Lock()
 	defer db.mu.Unlock()
+
+	// 关闭B+树索引，防止阻塞
+	if err := db.index.Close(); err != nil {
+		return err
+	}
+
+	// 为了BPlusTree，保存当前事务序列号
+	seqNoFile, err := data.OpenSeqNoFile(db.opt.DirPath)
+	if err != nil {
+		return err
+	}
+
+	logRecord := &data.LogRecord{
+		Key:   []byte(seqNoKey),
+		Value: []byte(strconv.FormatUint(db.seqNo, 10)),
+	}
+	// 写入序列号
+	encRecord, _ := data.EncodeLogRecord(logRecord)
+	if err := seqNoFile.Write(encRecord); err != nil {
+		return err
+	}
+
+	if err := seqNoFile.Sync(); err != nil {
+		return err
+	}
 
 	if err := db.activeFile.Close(); err != nil {
 		return err

@@ -14,13 +14,14 @@ type IndexerType = int8
 const (
 	Btree IndexerType = iota + 1
 	ART
+	BPlusTree
 )
 
 var DefaultOptions = Options{
 	DirPath:      os.TempDir(),
-	DataFileSize: 256 * 1024 * 256, // 256 MB
-	SyncWrites:   false,
-	IndexType:    Btree,
+	DataFileSize: 256 * 1024 * 1024, // 256 MB
+	SyncWrites:   true,
+	IndexType:    BPlusTree,
 }
 
 // 批量写配置项

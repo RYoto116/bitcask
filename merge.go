@@ -190,6 +190,9 @@ func (db *DB) loadMergeFiles() error {
 	var mergeFinished bool = false
 	var mergeFileNames []string
 	for _, entry := range entries {
+		if entry.Name() == data.SeqNoFileName {
+			continue
+		}
 		if entry.Name() == data.MergeFinishedFileName {
 			mergeFinished = true
 		}

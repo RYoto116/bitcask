@@ -13,6 +13,7 @@ const (
 	DataFileNameSuffix    = ".data"
 	HintFileName          = "hint-index"
 	MergeFinishedFileName = "merge-fin"
+	SeqNoFileName         = "seq-no"
 )
 
 var ErrInvalidCRC = errors.New("invalid crc value, log record maybe corrupted")
@@ -51,6 +52,12 @@ func OpenHintFile(dirPath string) (*DataFile, error) {
 // merge用，打开merge结束标识文件
 func OpenHintFinishedFile(dirPath string) (*DataFile, error) {
 	fileName := filepath.Join(dirPath, MergeFinishedFileName)
+	return newDataFile(fileName, 0)
+}
+
+// BPlusTree用，打开存储事务序列号的文件
+func OpenSeqNoFile(dirPath string) (*DataFile, error) {
+	fileName := filepath.Join(dirPath, SeqNoFileName)
 	return newDataFile(fileName, 0)
 }
 
