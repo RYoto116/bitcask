@@ -4,6 +4,7 @@ import (
 	"bitcask-kv/utils"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -37,7 +38,7 @@ func TestDB_Put(t *testing.T) {
 	opts.DirPath = dir
 	opts.DataFileSize = 64 * 1024 * 1024
 	db, err := OpenDB(opts)
-	defer destroyDB(db)
+	// defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -67,7 +68,7 @@ func TestDB_Put(t *testing.T) {
 	assert.Nil(t, err)
 
 	// 5.写到数据文件进行了转换
-	for i := 0; i < 1000; i++ {
+	for i := 0; i < 100000; i++ {
 		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
 		assert.Nil(t, err)
 	}
@@ -89,6 +90,7 @@ func TestDB_Put(t *testing.T) {
 	val5, err := db2.Get(utils.GetTestKey(55))
 	assert.Nil(t, err)
 	assert.Equal(t, val4, val5)
+	db2.Close()
 }
 
 func TestDB_Get(t *testing.T) {
@@ -300,4 +302,37 @@ func TestDB_Sync(t *testing.T) {
 
 	err = db.Sync()
 	assert.Nil(t, err)
+}
+
+func TestDB_FileLock(t *testing.T) {
+	opts := DefaultOptions
+	dir, _ := os.MkdirTemp("", "bitcask-go-filelock")
+	opts.DirPath = dir
+	db, err := OpenDB(opts) // 读锁
+	// defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	_, err = OpenDB(opts) //读锁
+	assert.Equal(t, err, ErrDatabaseIsUsing)
+
+	destroyDB(db)
+
+	db2, err := OpenDB(opts) //读锁
+	assert.NotNil(t, db2)
+	assert.Nil(t, err)
+	destroyDB(db2)
+}
+
+func TestDB_Open2(t *testing.T) {
+	opts := DefaultOptions
+	opts.DirPath = "/tmp/bitcask-go-put3440586241"
+
+	opts.MMapAtStartUp = false
+	now := time.Now()
+	db, err := OpenDB(opts)
+	t.Log("open time: ", time.Since(now))
+
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
 }

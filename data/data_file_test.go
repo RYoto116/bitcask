@@ -1,6 +1,7 @@
 package data
 
 import (
+	"bitcask-kv/fio"
 	"os"
 	"testing"
 
@@ -8,21 +9,21 @@ import (
 )
 
 func TestOpenDataFile(t *testing.T) {
-	df1, err := OpenDataFile(os.TempDir(), 0)
+	df1, err := OpenDataFile(os.TempDir(), 0, fio.StandardFIO)
 	assert.Nil(t, err)
 	assert.NotNil(t, df1)
 
-	df2, err := OpenDataFile(os.TempDir(), 1)
+	df2, err := OpenDataFile(os.TempDir(), 1, fio.StandardFIO)
 	assert.Nil(t, err)
 	assert.NotNil(t, df2)
 
-	df, err := OpenDataFile(os.TempDir(), 0)
+	df, err := OpenDataFile(os.TempDir(), 0, fio.StandardFIO)
 	assert.Nil(t, err)
 	assert.NotNil(t, df)
 }
 
 func TestDataFile_Write(t *testing.T) {
-	df, err := OpenDataFile(os.TempDir(), 0)
+	df, err := OpenDataFile(os.TempDir(), 0, fio.StandardFIO)
 	assert.Nil(t, err)
 	assert.NotNil(t, df)
 
@@ -37,7 +38,7 @@ func TestDataFile_Write(t *testing.T) {
 }
 
 func TestDataFile_Close(t *testing.T) {
-	df, err := OpenDataFile(os.TempDir(), 111)
+	df, err := OpenDataFile(os.TempDir(), 111, fio.StandardFIO)
 	assert.Nil(t, err)
 	assert.NotNil(t, df)
 
@@ -49,7 +50,7 @@ func TestDataFile_Close(t *testing.T) {
 }
 
 func TestDataFile_Sync(t *testing.T) {
-	df, err := OpenDataFile(os.TempDir(), 111)
+	df, err := OpenDataFile(os.TempDir(), 111, fio.StandardFIO)
 	assert.Nil(t, err)
 	assert.NotNil(t, df)
 
@@ -61,7 +62,7 @@ func TestDataFile_Sync(t *testing.T) {
 }
 
 func TestDataFile_ReadLogRecord(t *testing.T) {
-	df, err := OpenDataFile(os.TempDir(), 222)
+	df, err := OpenDataFile(os.TempDir(), 222, fio.StandardFIO)
 	assert.NotNil(t, df)
 	assert.Nil(t, err)
 

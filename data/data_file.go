@@ -24,8 +24,8 @@ type DataFile struct {
 	IoManager fio.IOManager
 }
 
-func newDataFile(fileName string, fileId uint32) (*DataFile, error) {
-	ioManager, err := fio.NewFileIOManager(fileName)
+func newDataFile(fileName string, fileId uint32, ioType fio.FileIOType) (*DataFile, error) {
+	ioManager, err := fio.NewIOManager(fileName, ioType)
 	if err != nil {
 		return nil, err
 	}
@@ -38,27 +38,27 @@ func GetFileName(dirPath string, fileId uint32) string {
 }
 
 // 打开新的数据文件
-func OpenDataFile(dirPath string, fileId uint32) (*DataFile, error) {
+func OpenDataFile(dirPath string, fileId uint32, ioType fio.FileIOType) (*DataFile, error) {
 	fileName := GetFileName(dirPath, fileId)
-	return newDataFile(fileName, fileId)
+	return newDataFile(fileName, fileId, ioType)
 }
 
 // merge用，打开Hint文件
 func OpenHintFile(dirPath string) (*DataFile, error) {
 	fileName := filepath.Join(dirPath, HintFileName)
-	return newDataFile(fileName, 0)
+	return newDataFile(fileName, 0, fio.StandardFIO)
 }
 
 // merge用，打开merge结束标识文件
 func OpenHintFinishedFile(dirPath string) (*DataFile, error) {
 	fileName := filepath.Join(dirPath, MergeFinishedFileName)
-	return newDataFile(fileName, 0)
+	return newDataFile(fileName, 0, fio.StandardFIO)
 }
 
 // BPlusTree用，打开存储事务序列号的文件
 func OpenSeqNoFile(dirPath string) (*DataFile, error) {
 	fileName := filepath.Join(dirPath, SeqNoFileName)
-	return newDataFile(fileName, 0)
+	return newDataFile(fileName, 0, fio.StandardFIO)
 }
 
 func (df *DataFile) Write(buf []byte) error {
@@ -151,4 +151,18 @@ func (df *DataFile) readNBytes(n int64, offset int64) (b []byte, err error) {
 	b = make([]byte, n)
 	_, err = df.IoManager.Read(b, offset)
 	return
+}
+
+func (df *DataFile) SetIoManager(dirPath string, ioType fio.FileIOType) error {
+	if err := df.IoManager.Close(); err != nil {
+		return err
+	}
+
+	ioManager, err := fio.NewIOManager(GetFileName(dirPath, df.FileID), ioType)
+	if err != nil {
+		return err
+	}
+
+	df.IoManager = ioManager
+	return nil
 }
