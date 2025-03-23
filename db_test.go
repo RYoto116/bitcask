@@ -348,6 +348,40 @@ func TestDB_Stat(t *testing.T) {
 	assert.NotNil(t, stat)
 }
 
+func TestDB_Backup(t *testing.T) {
+	opts := DefaultOptions
+	opts.DataFileSize = 64 * 1024 * 1024
+	dir, _ := os.MkdirTemp("", "bitcask-go-backup")
+	opts.DirPath = dir
+	db, err := OpenDB(opts)
+	defer destroyDB(db)
+	assert.Nil(t, err)
+	assert.NotNil(t, db)
+
+	for i := 0; i < 1000000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
+
+	backupDir, _ := os.MkdirTemp("", "bitcask-go-backup-test")
+	err = db.BackUp(backupDir)
+	assert.Nil(t, err)
+
+	opts.DirPath = backupDir
+	db2, err := OpenDB(opts)
+	defer destroyDB(db2)
+
+	assert.Nil(t, err)
+	assert.NotNil(t, db2)
+
+	res, err := db2.Get(utils.GetTestKey(3))
+	t.Log(string(res), err)
+	res, err = db2.Get(utils.GetTestKey(999))
+	t.Log(string(res), err)
+	res, err = db2.Get(utils.GetTestKey(38760))
+	t.Log(string(res), err)
+}
+
 // func TestDB_Open2(t *testing.T) {
 // 	opts := DefaultOptions
 // 	opts.DirPath = "/tmp/bitcask-go-put3440586241"

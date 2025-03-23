@@ -206,6 +206,14 @@ func (db *DB) loadSeqNo() error {
 	return os.Remove(seqNoPath)
 }
 
+// 备份数据库，将数据文件拷贝到新的目录中
+func (db *DB) BackUp(dir string) error {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+
+	return utils.CopyDir(db.opt.DirPath, dir, []string{fileLockName}) // 排除文件锁
+}
+
 func (db *DB) Put(key []byte, value []byte) error {
 	if len(key) == 0 {
 		return ErrKeyIsEmpty
