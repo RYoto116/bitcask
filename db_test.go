@@ -38,7 +38,7 @@ func TestDB_Put(t *testing.T) {
 	opts.DirPath = dir
 	opts.DataFileSize = 64 * 1024 * 1024
 	db, err := OpenDB(opts)
-	// defer destroyDB(db)
+	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
 
@@ -67,14 +67,15 @@ func TestDB_Put(t *testing.T) {
 	assert.Equal(t, 0, len(val3))
 	assert.Nil(t, err)
 
+	now := time.Now()
 	// 5.写到数据文件进行了转换
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < 1000000; i++ {
 		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
 		assert.Nil(t, err)
 	}
-	t.Log(len(db.olderFiles))
+	t.Log("put time: ", time.Since(now))
 
-	// assert.Equal(t, 2, len(db.olderFiles))
+	assert.Equal(t, 2, len(db.olderFiles))
 
 	// 6.重启后再 Put 数据
 	err = db.Close()
@@ -90,7 +91,6 @@ func TestDB_Put(t *testing.T) {
 	val5, err := db2.Get(utils.GetTestKey(55))
 	assert.Nil(t, err)
 	assert.Equal(t, val4, val5)
-	db2.Close()
 }
 
 func TestDB_Get(t *testing.T) {
@@ -324,15 +324,39 @@ func TestDB_FileLock(t *testing.T) {
 	destroyDB(db2)
 }
 
-func TestDB_Open2(t *testing.T) {
+func TestDB_Stat(t *testing.T) {
 	opts := DefaultOptions
-	opts.DirPath = "/tmp/bitcask-go-put3440586241"
-
-	opts.MMapAtStartUp = false
-	now := time.Now()
+	opts.DataFileSize = 64 * 1024 * 1024
+	dir, _ := os.MkdirTemp("", "bitcask-go-stat")
+	opts.DirPath = dir
 	db, err := OpenDB(opts)
-	t.Log("open time: ", time.Since(now))
-
+	defer destroyDB(db)
 	assert.Nil(t, err)
 	assert.NotNil(t, db)
+
+	for i := 0; i < 1000000; i++ {
+		err := db.Put(utils.GetTestKey(i), utils.RandomValue(128))
+		assert.Nil(t, err)
+	}
+
+	for i := 0; i < 1000000; i++ {
+		err := db.Delete(utils.GetTestKey(i))
+		assert.Nil(t, err)
+	}
+
+	stat := db.Stat()
+	assert.NotNil(t, stat)
 }
+
+// func TestDB_Open2(t *testing.T) {
+// 	opts := DefaultOptions
+// 	opts.DirPath = "/tmp/bitcask-go-put3440586241"
+
+// 	opts.MMapAtStartUp = false
+// 	now := time.Now()
+// 	db, err := OpenDB(opts)
+// 	t.Log("open time: ", time.Since(now))
+
+// 	assert.Nil(t, err)
+// 	assert.NotNil(t, db)
+// }

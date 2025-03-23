@@ -28,7 +28,7 @@ func TestDB_Merge2(t *testing.T) {
 	opts := DefaultOptions
 	dir, _ := os.MkdirTemp("", "bitcask-go-merge-2")
 	opts.DataFileSize = 32 * 1024 * 1024
-	// opts.DataFileMergeRatio = 0
+	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
 	db, err := OpenDB(opts)
 	defer destroyDB(db)
@@ -67,7 +67,7 @@ func TestDB_Merge3(t *testing.T) {
 	opts := DefaultOptions
 	dir, _ := os.MkdirTemp("", "bitcask-go-merge-3")
 	opts.DataFileSize = 32 * 1024 * 1024
-	// opts.DataFileMergeRatio = 0
+	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
 	db, err := OpenDB(opts)
 	defer destroyDB(db)
@@ -118,7 +118,7 @@ func TestDB_Merge4(t *testing.T) {
 	opts := DefaultOptions
 	dir, _ := os.MkdirTemp("", "bitcask-go-merge-4")
 	opts.DataFileSize = 32 * 1024 * 1024
-	// opts.DataFileMergeRatio = 0
+	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
 	db, err := OpenDB(opts)
 	defer destroyDB(db)
@@ -155,7 +155,7 @@ func TestDB_Merge5(t *testing.T) {
 	opts := DefaultOptions
 	dir, _ := os.MkdirTemp("", "bitcask-go-merge-5")
 	opts.DataFileSize = 32 * 1024 * 1024
-	// opts.DataFileMergeRatio = 0
+	opts.DataFileMergeRatio = 0
 	opts.DirPath = dir
 	db, err := OpenDB(opts)
 	defer destroyDB(db)

@@ -19,16 +19,18 @@ const maxLogRecordHeaderSize = binary.MaxVarintLen32*2 + 5
 type LogRecordPos struct {
 	Fid    uint32 // 文件id，表示将数据存储到哪个文件中
 	Offset int64  // 数据存储位置在文件中的偏移量
+	Size   uint32 // 数据在磁盘上的大小
 }
 
 // 对索引位置进行编码
 func EncodeLogRecordPos(pos *LogRecordPos) []byte {
-	buf := make([]byte, binary.MaxVarintLen32+binary.MaxVarintLen64) // Fid: uint32, Offset: int64
+	buf := make([]byte, binary.MaxVarintLen32*2+binary.MaxVarintLen64) // Fid: uint32, Offset: int64
 	var index = 0
 	index += binary.PutVarint(buf[index:], int64(pos.Fid))
 	index += binary.PutVarint(buf[index:], pos.Offset)
+	index += binary.PutVarint(buf[index:], int64(pos.Size))
 
-	return buf
+	return buf[:index]
 }
 
 // 解码LogRecordPos
@@ -38,10 +40,12 @@ func DecodeLogRecordPos(buf []byte) *LogRecordPos {
 	index += n
 	offset, n := binary.Varint(buf[index:])
 	index += n
+	size, _ := binary.Varint(buf[index:])
 
 	return &LogRecordPos{
 		Fid:    uint32(fileId),
 		Offset: offset,
+		Size:   uint32(size),
 	}
 }
 

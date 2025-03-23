@@ -125,11 +125,17 @@ func (wb *WriteBatch) Commit() error {
 
 	// 批量更新内存索引
 	for _, record := range wb.pendingWrites {
+		var oldPos *data.LogRecordPos
 		pos := positions[string(record.Key)]
 		if record.Type == data.LogRecordNormal {
-			wb.db.index.Put(record.Key, pos)
+			oldPos = wb.db.index.Put(record.Key, pos)
 		} else {
-			wb.db.index.Delete(record.Key) // 重要：暂存操作可能包含删除操作
+			oldPos, _ = wb.db.index.Delete(record.Key) // 重要：暂存操作可能包含删除操作
+			wb.db.reclaimSize += int64(pos.Size)
+		}
+
+		if oldPos != nil {
+			wb.db.reclaimSize += int64(oldPos.Size)
 		}
 	}
 

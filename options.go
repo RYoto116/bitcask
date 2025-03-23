@@ -3,12 +3,13 @@ package bitcask
 import "os"
 
 type Options struct {
-	DirPath       string // 数据库数据目录
-	DataFileSize  int64
-	SyncWrites    bool // 每次写数据后是否持久化
-	BytesPerSync  uint // 累计写到多少字节后进行持久化
-	IndexType     IndexerType
-	MMapAtStartUp bool // 启动数据库时是否使用MMap加载数据文件
+	DirPath            string // 数据库数据目录
+	DataFileSize       int64
+	SyncWrites         bool // 每次写数据后是否持久化
+	BytesPerSync       uint // 累计写到多少字节后进行持久化
+	IndexType          IndexerType
+	MMapAtStartUp      bool    // 启动数据库时是否使用MMap加载数据文件
+	DataFileMergeRatio float32 // 数据文件开启merge的阈值
 }
 
 type IndexerType = int8
@@ -20,12 +21,13 @@ const (
 )
 
 var DefaultOptions = Options{
-	DirPath:       os.TempDir(),
-	DataFileSize:  256 * 1024 * 1024, // 256 MB
-	SyncWrites:    false,
-	BytesPerSync:  0,
-	IndexType:     Btree,
-	MMapAtStartUp: true,
+	DirPath:            os.TempDir(),
+	DataFileSize:       256 * 1024 * 1024, // 256 MB
+	SyncWrites:         false,
+	BytesPerSync:       0,
+	IndexType:          Btree,
+	MMapAtStartUp:      true,
+	DataFileMergeRatio: 0.5,
 }
 
 // 批量写配置项
