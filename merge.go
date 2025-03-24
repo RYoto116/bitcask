@@ -1,8 +1,8 @@
 package bitcask
 
 import (
-	"bitcask-kv/data"
-	"bitcask-kv/utils"
+	"bitcask/data"
+	"bitcask/utils"
 	"io"
 	"os"
 	"path"
@@ -94,7 +94,7 @@ func (db *DB) Merge() error {
 		}
 	}
 
-	// 新建一个merge目录
+	// 新建一个merge目录，用于启动merge使用的数据库
 	if err := os.MkdirAll(mergePath, os.ModePerm); err != nil {
 		return err
 	}

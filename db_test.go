@@ -1,7 +1,7 @@
 package bitcask
 
 import (
-	"bitcask-kv/utils"
+	"bitcask/utils"
 	"os"
 	"testing"
 	"time"

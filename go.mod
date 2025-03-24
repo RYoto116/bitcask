@@ -1,4 +1,4 @@
-module bitcask-kv
+module bitcask
 
 go 1.23.4
 

@@ -1,7 +1,7 @@
 package bitcask
 
 import (
-	"bitcask-kv/index"
+	"bitcask/index"
 	"bytes"
 )
 

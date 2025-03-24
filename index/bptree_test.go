@@ -1,7 +1,7 @@
 package index
 
 import (
-	"bitcask-kv/data"
+	"bitcask/data"
 	"os"
 	"path/filepath"
 	"testing"

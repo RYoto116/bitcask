@@ -1,7 +1,7 @@
 package data
 
 import (
-	"bitcask-kv/fio"
+	"bitcask/fio"
 	"errors"
 	"fmt"
 	"hash/crc32"

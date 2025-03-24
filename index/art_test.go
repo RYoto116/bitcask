@@ -1,7 +1,7 @@
 package index
 
 import (
-	"bitcask-kv/data"
+	"bitcask/data"
 	"testing"
 
 	"github.com/stretchr/testify/assert"

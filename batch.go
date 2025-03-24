@@ -1,7 +1,7 @@
 package bitcask
 
 import (
-	"bitcask-kv/data"
+	"bitcask/data"
 	"encoding/binary"
 	"sync"
 	"sync/atomic"

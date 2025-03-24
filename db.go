@@ -1,10 +1,10 @@
 package bitcask
 
 import (
-	"bitcask-kv/data"
-	"bitcask-kv/fio"
-	"bitcask-kv/index"
-	"bitcask-kv/utils"
+	"bitcask/data"
+	"bitcask/fio"
+	"bitcask/index"
+	"bitcask/utils"
 	"errors"
 	"fmt"
 	"io"
