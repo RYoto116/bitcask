@@ -356,6 +356,7 @@ func (db *DB) Delete(key []byte) error {
 		return ErrKeyIsEmpty
 	}
 
+	// key 在索引中不存在
 	if pos := db.index.Get(key); pos == nil {
 		return nil
 	}
