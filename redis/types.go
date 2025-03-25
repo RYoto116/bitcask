@@ -191,7 +191,7 @@ func (rds *RedisDataStructure) HDel(key, field []byte) (bool, error) {
 	return exist, nil
 }
 
-// ===============================  Set ================================
+// ===============================  Set  ================================
 // SADD 向集合添加一个成员
 // 元数据：key ==> type | expire | version | size
 // 数据部分：key | version | member | menbersize ==> NULL
@@ -289,6 +289,106 @@ func (rds *RedisDataStructure) SRem(key, member []byte) (bool, error) {
 	}
 
 	return true, nil
+}
+
+// ===============================  List  ================================
+// 元数据：key ==> type | expire | version | size | head | tail
+// 数据部分：key | version | index ==> value
+// 将一个值插入到列表头部
+func (rds *RedisDataStructure) LPush(key, element []byte) (uint32, error) {
+	return rds.pushInner(key, element, true)
+}
+
+func (rds *RedisDataStructure) RPush(key, element []byte) (uint32, error) {
+	return rds.pushInner(key, element, false)
+}
+
+// 返回key元数据的size
+func (rds *RedisDataStructure) pushInner(key, element []byte, isLeft bool) (uint32, error) {
+	md, err := rds.findMetadata(key, List)
+	if err != nil {
+		return 0, err
+	}
+
+	var index uint64
+	if isLeft {
+		index = md.head - 1
+	} else {
+		index = md.tail // 前闭后开
+	}
+
+	lik := &listInternalKey{
+		key:     key,
+		version: md.version,
+		index:   index,
+	}
+	encKey := lik.encode()
+
+	wb := rds.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+
+	if isLeft {
+		md.head--
+	} else {
+		md.tail++
+	}
+	md.size++
+	_ = wb.Put(key, md.encode())
+	_ = wb.Put(encKey, element)
+	if err := wb.Commit(); err != nil {
+		return 0, err
+	}
+
+	return md.size, nil
+}
+
+func (rds *RedisDataStructure) LPop(key []byte) ([]byte, error) {
+	return rds.popInner(key, true)
+}
+
+func (rds *RedisDataStructure) RPop(key []byte) ([]byte, error) {
+	return rds.popInner(key, false)
+}
+
+func (rds *RedisDataStructure) popInner(key []byte, isLeft bool) ([]byte, error) {
+	md, err := rds.findMetadata(key, List)
+	if err != nil {
+		return nil, err
+	}
+
+	if md.size == 0 {
+		return nil, nil
+	}
+
+	var index uint64
+	if isLeft {
+		index = md.head
+	} else {
+		index = md.tail - 1 // 前闭后开
+	}
+
+	lik := &listInternalKey{
+		key:     key,
+		version: md.version,
+		index:   index,
+	}
+	encKey := lik.encode()
+
+	element, err := rds.db.Get(encKey)
+	if err != nil {
+		return nil, err
+	}
+
+	if isLeft {
+		md.head++
+	} else {
+		md.tail--
+	}
+	md.size--
+	if err := rds.db.Put(key, md.encode()); err != nil {
+		return nil, err
+	}
+
+	return element, nil
 }
 
 // Hash、List、Set、ZSet等数据的元数据也保存在rds.db中。寻找key对应的元数据是否存在

@@ -64,11 +64,11 @@ func decodeMetadata(buf []byte) *metadata {
 	index += n
 
 	if md.dataType == List {
-		head, n := binary.Varint(buf[index:])
+		head, n := binary.Uvarint(buf[index:])
 		md.head = uint64(head)
 		index += n
 
-		tail, n := binary.Varint(buf[index:])
+		tail, n := binary.Uvarint(buf[index:])
 		md.tail = uint64(tail)
 		index += n
 	}
@@ -120,6 +120,28 @@ func (sik *setInternalKey) encode() []byte {
 
 	binary.LittleEndian.PutUint32(buf[index:index+4], uint32(len(sik.member)))
 	index += 4
+
+	return buf[:index]
+}
+
+type listInternalKey struct {
+	key     []byte
+	version int64
+	index   uint64
+}
+
+func (lik *listInternalKey) encode() []byte {
+	buf := make([]byte, len(lik.key)+8*2)
+	var index = 0
+
+	copy(buf[index:], lik.key)
+	index += len(lik.key)
+
+	binary.LittleEndian.PutUint64(buf[index:index+8], uint64(lik.version))
+	index += 8
+
+	binary.LittleEndian.PutUint64(buf[index:index+8], lik.index)
+	index += 8
 
 	return buf[:index]
 }
