@@ -7,7 +7,12 @@ require (
 	github.com/stretchr/testify v1.10.0
 )
 
-require golang.org/x/sys v0.29.0 // indirect
+require (
+	github.com/tidwall/btree v1.7.0 // indirect
+	github.com/tidwall/match v1.1.1 // indirect
+	github.com/tidwall/redcon v1.6.2 // indirect
+	golang.org/x/sys v0.29.0 // indirect
+)
 
 require (
 	github.com/davecgh/go-spew v1.1.1 // indirect
