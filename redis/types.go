@@ -2,6 +2,7 @@ package redis
 
 import (
 	"bitcask"
+	"bitcask/utils"
 	"encoding/binary"
 	"errors"
 	"time"
@@ -389,6 +390,82 @@ func (rds *RedisDataStructure) popInner(key []byte, isLeft bool) ([]byte, error)
 	}
 
 	return element, nil
+}
+
+// ===============================  List  ================================
+func (rds *RedisDataStructure) ZAdd(key []byte, score float64, member []byte) (bool, error) {
+	md, err := rds.findMetadata(key, ZSet)
+	if err != nil {
+		return false, err
+	}
+
+	zik := &zsetInternalKey{
+		key:     key,
+		version: md.version,
+		member:  member,
+		score:   score,
+	}
+
+	var exist = true
+	value, err := rds.db.Get(zik.encodeWithMember())
+	if err == bitcask.ErrKeyNotFound {
+		exist = false
+	}
+
+	if exist && utils.FloatFromBytes(value) == score {
+		return false, nil
+	}
+
+	wb := rds.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+
+	// 不存在，需要更新元数据
+	if !exist {
+		md.size++
+		_ = wb.Put(key, md.encode())
+	}
+
+	if exist {
+		oldKey := &zsetInternalKey{
+			key:     key,
+			version: md.version,
+			member:  member,
+			score:   utils.FloatFromBytes(value),
+		}
+		_ = wb.Delete(oldKey.encodeWithMember())
+	}
+
+	// 写两条数据
+	_ = wb.Put(zik.encodeWithMember(), utils.Float64ToBytes(score))
+	_ = wb.Put(zik.encodeWithScore(), nil)
+	if err := wb.Commit(); err != nil {
+		return false, err
+	}
+
+	return !exist, nil
+}
+
+func (rds *RedisDataStructure) ZScore(key, member []byte) (float64, error) {
+	md, err := rds.findMetadata(key, ZSet)
+	if err != nil {
+		return -1, err
+	}
+
+	if md.size == 0 {
+		return -1, err
+	}
+
+	zik := &zsetInternalKey{
+		key:     key,
+		version: md.version,
+		member:  member,
+	}
+
+	value, err := rds.db.Get(zik.encodeWithMember())
+	if err != nil {
+		return -1, err
+	}
+
+	return utils.FloatFromBytes(value), nil
 }
 
 // Hash、List、Set、ZSet等数据的元数据也保存在rds.db中。寻找key对应的元数据是否存在
