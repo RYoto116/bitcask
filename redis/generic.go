@@ -1,6 +1,8 @@
 package redis
 
-import "errors"
+import (
+	"errors"
+)
 
 // 通用命令（Delete, Type)
 
