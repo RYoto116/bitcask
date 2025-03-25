@@ -97,3 +97,29 @@ func (hik *hashInternalKey) encode() []byte {
 
 	return buf[:index]
 }
+
+type setInternalKey struct {
+	key     []byte
+	version int64
+	member  []byte
+	// memberSize uint32
+}
+
+func (sik *setInternalKey) encode() []byte {
+	buf := make([]byte, len(sik.key)+8+len(sik.member)+4) // 保留4个字节以编码member长度
+	var index = 0
+
+	copy(buf[index:], sik.key)
+	index += len(sik.key)
+
+	binary.LittleEndian.PutUint64(buf[index:index+8], uint64(sik.version))
+	index += 8
+
+	copy(buf[index:], sik.member)
+	index += len(sik.member)
+
+	binary.LittleEndian.PutUint32(buf[index:index+4], uint32(len(sik.member)))
+	index += 4
+
+	return buf[:index]
+}

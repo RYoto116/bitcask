@@ -134,7 +134,7 @@ func (rds *RedisDataStructure) HGet(key, field []byte) ([]byte, error) {
 	}
 
 	if md.size == 0 {
-		return nil, bitcask.ErrKeyNotFound
+		return nil, nil
 	}
 
 	hk := &hashInternalKey{
@@ -144,7 +144,15 @@ func (rds *RedisDataStructure) HGet(key, field []byte) ([]byte, error) {
 	}
 	encKey := hk.encode()
 
-	return rds.db.Get(encKey)
+	val, err := rds.db.Get(encKey)
+	if err != nil && err != bitcask.ErrKeyNotFound {
+		return nil, err
+	}
+
+	if err == bitcask.ErrKeyNotFound {
+		return nil, nil
+	}
+	return val, nil
 }
 
 // 删除(key, field)，返回key原先是否存在
@@ -181,6 +189,106 @@ func (rds *RedisDataStructure) HDel(key, field []byte) (bool, error) {
 	}
 
 	return exist, nil
+}
+
+// ===============================  Set ================================
+// SADD 向集合添加一个成员
+// 元数据：key ==> type | expire | version | size
+// 数据部分：key | version | member | menbersize ==> NULL
+func (rds *RedisDataStructure) SAdd(key, member []byte) (bool, error) {
+	md, err := rds.findMetadata(key, Set)
+	if err != nil {
+		return false, err
+	}
+
+	sk := &setInternalKey{
+		key:     key,
+		version: md.version,
+		member:  member,
+	}
+	encKey := sk.encode()
+
+	// encKey不存在则更新
+	if _, err := rds.db.Get(encKey); err == bitcask.ErrKeyNotFound {
+		wb := rds.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+		// 更新元数据
+		md.size++
+		_ = wb.Put(key, md.encode())
+		_ = wb.Put(encKey, nil) // Set不需要写入value
+		if err := wb.Commit(); err != nil {
+			return true, err
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+// 判断 member 元素是否是集合 key 的成员
+func (rds *RedisDataStructure) SIsMember(key, member []byte) (bool, error) {
+	md, err := rds.findMetadata(key, Set)
+	if err != nil {
+		return false, err
+	}
+
+	if md.size == 0 {
+		return false, nil
+	}
+
+	sk := &setInternalKey{
+		key:     key,
+		version: md.version,
+		member:  member,
+	}
+	encKey := sk.encode()
+
+	_, err = rds.db.Get(encKey)
+	if err != nil && err != bitcask.ErrKeyNotFound {
+		return false, err
+	}
+
+	if err == bitcask.ErrKeyNotFound {
+		return false, nil
+	}
+	return true, nil
+}
+
+// 移除集合中一个成员
+func (rds *RedisDataStructure) SRem(key, member []byte) (bool, error) {
+	md, err := rds.findMetadata(key, Set)
+	if err != nil {
+		return false, err
+	}
+
+	if md.size == 0 {
+		return false, nil
+	}
+
+	sik := &setInternalKey{
+		key:     key,
+		version: md.version,
+		member:  member,
+	}
+	encKey := sik.encode()
+
+	_, err = rds.db.Get(encKey)
+	if err != nil && err != bitcask.ErrKeyNotFound {
+		return false, err
+	}
+
+	if err == bitcask.ErrKeyNotFound {
+		return false, nil
+	}
+
+	wb := rds.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+	md.size--
+	_ = wb.Put(key, md.encode())
+	_ = wb.Delete(encKey)
+	if err := wb.Commit(); err != nil {
+		return true, err
+	}
+
+	return true, nil
 }
 
 // Hash、List、Set、ZSet等数据的元数据也保存在rds.db中。寻找key对应的元数据是否存在
